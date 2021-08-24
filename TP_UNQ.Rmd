@@ -1,0 +1,73 @@
+---
+title: "TP - Intro R - UNQ"
+author: "Ailen Authier y Franco Marsico"
+date: "22/8/2021"
+output: html_document
+---
+
+# Introducción
+En este trabajo práctico haremos hincapié en la utilización de las herramientas y conceptos ligados a la visualización de datos. Para este fin nos contextualizamos en una problemática de comunicación científica hipotética. Como primer paso cargaremos un conjunto de librerias que permitirán la ejecución de funciones.
+
+```{r, message=FALSE}
+library(ggmap)
+library(sf)
+library(raster)
+library(dplyr)
+library(spData)
+library(spDataLarge)
+library(tmap)   
+library(leaflet) 
+library(ggplot2) 
+library(rworldmap) 
+library(ggrepel)
+library(forrel)
+library(ggridges)
+library(packHV)
+```
+
+
+## El contexto
+En el año 1993 comenzó un fenómeno de homicidios y desapariciones en la Ciudad de Juarez, Mexico. Para el año 2012 el número de mujeres asesidadas en esta ciudad de frontera, perteneciente al Estado de Chihuahua, ascendía a más de 700. Aún hoy en día, familiares de las desaparecidas continúan la búsqueda con ayuda de organismos internacionales de Derechos Humanos. Por otro lado, la identificación de fosas comunes y hallazgo de restos óseos humanos genera la búsqueda inversa, de familiares de desaparecidas, con el fin de identificar los mismos. 
+
+```{r, message=FALSE}
+bbox <- c(left = -118.279, bottom = 17.518, right = -88.352, top = 41.624)
+
+ggmap(get_stamenmap(bbox, zoom = 5)) +
+  geom_point(aes(x = -106.487015, y = 31.738581)) +
+  geom_text(aes(-106.487015, 32.538581, label = "Ciudad Juarez"))
+```
+## El hecho
+Basado en un análisis de escaneo terrestre mediante la aplicación de la tecnología LiDAR (previamente utilizado en Campo de Mayo, República Argentina, shorturl.at/uwDE4) se detecta una fosa común en el norte de Ciudad Juarez. Los antropologos forenses determinan que los restos poseen una antiguedad de aproximadamente 20 años, situandonos en una desapación ocurrida entre 1995 y 2005. A dicha altura se habian realizado alrededor de 101 denuncias de personas desaparecidas. 
+MAPA CON PUNTITOS.
+```{r}
+
+```
+
+A continuación se presenta un análisis descriptivo de los casos de personas desaparecidas a la fecha. Por otra parte, luego de un riguroso análisis, se logra determinar que en la fosa común se encontraron restos oseas correspondientes a un total de 21 indivudos.
+
+```{r}
+
+```
+
+## La comparación genética
+El análisis genético de parentesco se hizo con un total de 101 familias que buscan a sus desaparecidos contra los restos oseos de los 21 individuos hallados. El resultado del análisis se expresa en un cociente de verosimilitud que contrasta dos hipótesis: H1: el resto X corresponde a la persona desaparecida de la familia Y, y H2: el resto X corresponde a un individuo tomado al azar de la población de referencia. El resultado se expresa en LR (likelihood ratio), y su interpretación es la siguiente: suponiendo que un análisis de parentesco arroja un LR = 8, esto indica que es 8 veces más probable obtener los datos genéticos si el individuo X corresponde al pedigrí Y que si correspondiese a una persona tomada al azar de la población de referencia. En total, se realizaron en la investigación 2121 análisis (101 familias por 21 individuos). La distribución de valores obtenidos se muestra a continuación.
+
+```{r}
+Resultados <- as.data.frame(cbind(rep(1:21, 101), rep(1:101, each = 21), c(rnorm(2100, mean = 0.01, sd = 0.1), rgamma(21, 3, 3))))
+names(Resultados) <- c("Resto", "Familia", "LR")
+Resultados$LR[Resultados$LR < 0] <- 0              
+summary(Resultados)
+```
+
+Graficando dichos resultados observamos un conjunto de valores altos (LR > 1), primeros candidatos para un análisis de mayor profundidad. 
+
+```{r}
+hist_boxplot(Resultados$LR, freq = TRUE, density = FALSE, breaks = 50, main = "Resultados del análisis de parentesco", xlab = "LR", ylab = "Frecuencia")
+```
+
+Posteriormente generamos una tabla para identificar a aquellos casos en los cuales el LR > 1. 
+```{r}
+Resultados %>% filter(LR > 1)
+```
+
+La familia 101 aparece en todos los casos. A modo de ejemplo analizamos la distribución de LR obtenidos para las familias 1, 10, 100 y 101. Para el plot de densidad utilizamos el Log10(LR)
