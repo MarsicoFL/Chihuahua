@@ -70,4 +70,16 @@ Posteriormente generamos una tabla para identificar a aquellos casos en los cual
 Resultados %>% filter(LR > 1)
 ```
 
-La familia 101 aparece en todos los casos. A modo de ejemplo analizamos la distribución de LR obtenidos para las familias 1, 10, 100 y 101. Para el plot de densidad utilizamos el Log10(LR)
+La familia 101 aparece en todos los casos. A modo de ejemplo analizamos la distribución de LR obtenidos para las familias 1, 10, 100 y 101. Para el plot de densidad utilizamos el Log10(LR).
+
+```{r}
+X <- subset(Resultados, Familia %in% c(1, 10, 100, 101))
+library(dplyr)
+X <- X %>% mutate(Log = log(LR, 10))
+
+ggplot(X, aes(x = Log, y = Familia, fill = Familia)) +
+  geom_density() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+
+```
