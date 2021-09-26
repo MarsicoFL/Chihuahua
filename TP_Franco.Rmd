@@ -1,0 +1,249 @@
+---
+title: "Informe de Investigación Preliminar - Caso Juárez"
+author: "Franco Marsico & Ailén Authier"
+date: "8/26/2021"
+output:
+  html_document:
+    code_folding: hide
+    theme: paper
+    highlight: pygments
+    toc: true
+---
+
+```{r setup, include=FALSE, message=F, warning=F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+
+## Resumen
+
+
+En el presente trabajo nos concentramos en el análisis de datos haciendo especial enfasis en la visualización y socialización de los resultados de cara a un público no especializado en estadística. A modo de ejemplo tomamos un caso de ciencias forenses, en el cual la investigación conduce a la necesidad de convencer a miembros del poder judicial a realizar una exhumación para la resolución de un caso de identificación de personas desaparecidas. En los procedimientos judiciales, el rol del científico forense consiste en la formalización y sistematización de la evidencia y la interpretación de la misma en el contexto de una causa. Esto va desde el análisis de los datos relacionados al hecho de desapareción, comúnmente denominados como la "investigación preliminar", hasta los análisis genéticos denominados test de parentesco. En Ciencias Forenses resultan esenciales dos aspectos: transparencia y trazabilidad en los análisis. De esta manera, la visualización de datos acompañada de código abierto resulta propicia a la hora de promover la incorporación de análisis estadísticos a los procesos judiciales. 
+Con este fin, generamos un ejemplo hipótetico, basado en un caso real, en el cual un análisis de simulación computacional desarrollado con el algoritmo de Monte Carlo resulta elemental para que se tome una decision respecto a un caso. El desafío es trasmitir de forma clara los principales resultados. A continuación se presentan los resultados en el formato de un informe pericial.
+
+
+# Análisis
+
+```{r, message=FALSE, warning=F}
+library(msm)
+library(ggmap)
+library(sf)
+library(raster)
+library(dplyr)
+library(spData)
+library(spDataLarge)
+library(tmap)   
+library(leaflet) 
+library(ggplot2) 
+library(rworldmap) 
+library(ggrepel)
+library(forrel)
+library(ggridges)
+library(packHV)
+library(plotly)
+library(ggdist)
+library(mapview)
+library(leaflet)
+library(leafpop)
+library(tidyr)
+library(forcats)
+library(hrbrthemes)
+library(viridis)
+```
+
+
+## El contexto
+En el año 1993 comenzó un fenómeno de homicidios y desapariciones en la Ciudad de Juarez, Méjico. Para el año 2012 el número de mujeres asesidadas en esta ciudad de frontera, perteneciente al Estado de Chihuahua (ver mapa a continuación), ascendía a más de 700. Hoy en día, familiares de las desaparecidas continúan la búsqueda con ayuda de organismos internacionales de Derechos Humanos. 
+
+
+```{r, message=FALSE, warning=F}
+bbox <- c(left = -118.279, bottom = 17.518, right = -88.352, top = 41.624)
+
+ggmap(get_stamenmap(bbox, zoom = 5)) +
+  geom_point(aes(x = -106.487015, y = 31.738581)) +
+  geom_text(aes(-106.487015, 32.538581, label = "Ciudad Juarez"))
+```
+
+## Los desaparecidos
+
+Basado en un análisis de escaneo terrestre mediante la aplicación de la tecnología LiDAR se detecta una fosa común en el norte de Ciudad Juarez. En total se identificaron restos pertenecientes a 21 personas. Los antropologos forenses determinan que los mismos poseen una antiguedad de aproximadamente 20 años, situándonos en un evento ocurrido entre 1995 y 2005. En ese rango temporal, se realizaron 101 denuncias de personas desaparecidas. Se recopila la información de estos casos constituyendo una base de datos con 101 observaciones y 6 variables: profesión, edad, género, fecha de desaparición, latitud y longitud del último lugar donde fue vista la persona. Los casos se vuelcan en el siguiente mapa interactivo:
+
+```{r, message=FALSE, warning=F}
+fecha <- seq(as.Date("1993-01-01"), by =1, len = 365)
+
+genero <- c('M','F')
+profesion <- c("Cocinero", "Albañil", "Obrero", "Panadero", "Carpintero", "Locutor",
+               "Soldador", "Escritor", "Vendedor", "Sastre", "Repartidor", "Cajero",
+               "Carnicero", "Peluquero", "Chofer", "Abogado",	"Médico",	"Paleontólogo",
+               "Ingeniero",	"Historiador",	"Geógrafo", "Biólogo",	"Psicólogo",
+               "Matemático",	"Arquitecto","Profesor","Periodista", "Físico",	"Sociólogo",
+               "Farmacólogo", "Químico",	"Politólogo",	"Enfermero", "Electricista",
+               "Bibliotecólogo", "Técnico de sonido",	"Músico", "Filósofo",	"Secretaria",
+               "Traductor", "Antropólogo",	"Economista", "Administrador",	"Lingüista",
+               "Radiólogo", "Contador")
+edad <- (18:65)
+
+set.seed(1)
+
+
+
+getFechas <- function(n){
+  sample(fecha, n, replace = TRUE)
+}
+
+getGenero <- function(n,semilla){
+  sample(genero,n,replace = TRUE)
+}
+
+getEdad <- function(n,semilla){
+  sample(edad,n,replace = TRUE)
+}
+
+getProfesion <- function(n,semilla){
+  sample(profesion,n,replace = TRUE)
+}
+
+
+getLat <- function(n,semilla){
+  runif(n, 31.608579, 31.8)
+}
+
+getLong<- function(n,semilla){
+  runif(n, -106.468030, -106.296001)
+}
+
+genSimulacion <- function(n,semilla){
+  desaparecides <- data.frame(profesion = getProfesion(n))
+  desaparecides <- cbind(desaparecides, edad = getEdad(n,1))
+  desaparecides <- cbind(desaparecides, genero = getGenero(n,1))
+  desaparecides <- cbind(desaparecides, fecha = getFechas(n))
+  desaparecides <- cbind(desaparecides, LAT = getLat(n))
+  desaparecides <- cbind(desaparecides, LONG = getLong(n))
+    rownames(desaparecides) <- c(1:n)
+  return(desaparecides)
+}
+
+desaparecides <- genSimulacion(101,1)
+
+
+
+```
+
+
+```{r, message=FALSE, warning=F}
+m <- leaflet()
+
+m <- addTiles(m)
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = desaparecides,
+                   popup = popupTable(desaparecides))
+
+
+```
+
+
+## La comparación genética
+El análisis genético de parentesco se hizo con las 101 familias que realizaron la denuncia contra los restos oseos de los 21 individuos hallados (denominados PI, por Persona a Identificar). El resultado del análisis se expresa en un cociente de verosimilitud que contrasta dos hipótesis: H1: PI corresponde a la persona desaparecida de la familia Y, y H2: PI no corresponde a la persona desaparecida. Esto se ilustra en el siguiente esquema, tomando como ejemplo una familia con un padre, una madre y dos hijos, uno desaparecido. Por convención, los masculinos se representan como cuadrados, los femeninos como circulos, y aquellos miembros de los cuales hay material genético disponible son rellenados con rayas (en este caso, el hermano del desaparecido aportó su muestra).
+
+```{r, message=FALSE, warning=F}
+x = nuclearPed(father = "Padre", mother = "Madre", children = c("Hijo 1", "Hijo 2"))
+missingPersonPlot(x, missing = "Hijo 2", MP.label = " desaparecido", POI.label = "PI", labs = NULL,
+                  hatched = "Hijo 1", POI.hatched = TRUE,
+                  width = 2,      # adjust internal spacing (see above)
+                  dev.width = 7,  # device width (see ?plotPedList())
+                  dev.height = 3, # device height (see ?plotPedList())
+                  fmar = 0.02,    # adjust frame margin (see ?plotPedList())
+                  cex = 1,      # larger symbols and label font (see ?par())
+                  cex.main = 1,  # larger frame titles (see ?par())
+                  titles = c(expression(H[1] * ": PI ES EL desaparecido"), expression(H[2] * ": PI NO ES el desaparecido"))
+                  )
+
+```
+
+
+
+El resultado del test de parentesco se expresa en LR (likelihood ratio), y su interpretación es la siguiente: suponiendo que un análisis de parentesco arroja un LR = 8, esto indica que es 8 veces más probable obtener los datos genéticos si PI es la persona desaparecida que si no lo fuere. En total, se realizaron 2121 análisis (101 familias por 21 PI). Los valores obtenidos se muestra a continuación.
+
+```{r, message=FALSE,  warning=F}
+set.seed(1000)
+Resultados <- as.data.frame(cbind(rep(1:21, 101), rep(1:101, each = 21), c(rnorm(2100, mean = 0.01, sd = 0.1), rgamma(21, 3, 3))))
+names(Resultados) <- c("Resto", "Familia", "LR")
+Resultados <- Resultados %>% mutate(Supera = LR > 1)
+Resultados[Resultados == TRUE] <- "Si"
+Resultados[Resultados == FALSE] <- "No"
+Resultados$LR[Resultados$LR < 0] <- 0              
+
+library(hrbrthemes)
+ggplot(Resultados, aes(x = LR,  fill = Resultados$Supera , label = Familia)) +
+  labs(x = "Cociente de verosimilitud (LR)", y = "Cantidad de casos", fill = "¿Posible identificación (LR > 1)?") + 
+  ggtitle("Resultados del test de parentesco masivo") +
+  theme_minimal() +
+  theme(legend.title.align=0.5) +
+  geom_histogram(bins = 40, color="white") +
+  geom_vline(xintercept=1, linetype='dotted', col = 'blue') +
+  annotate("text", x=1.9, y=20.3, label= "Familia 101") + 
+  annotate("segment", x = 1.8, xend = 1.6, y = 16, yend = 6, colour = "black", size = 0.4, arrow = arrow(length = unit(.2,"cm"))) +
+  annotate("segment", x = 1.8, xend = 2, y = 16, yend = 6, colour = "black", size = 0.4, arrow = arrow(length = unit(.2,"cm"))) +
+  annotate("segment", x = 1.8, xend = 1.25, y = 16, yend = 6, colour = "black", size = 0.4, arrow = arrow(length = unit(.2,"cm"))) +
+  scale_x_log10(limits = c(1e-02, 1e1), expand = c(0.03, -0.4))
+```
+
+
+
+
+
+Como puede verse la Familia 101 aparece en todos los casos con LR > 1. Este valor se toma como punto de inflexión, dado que es a partir de allí donde la hipótesis de parenstesco es más probable que la de no parentesco. Se decide trabajar específicamente con dicha familia, cuyo pedigree se muestra a continuación.
+
+```{r, message=FALSE,  warning=F}
+x = readFam("Ejemplo.fam", useDVI = T, verbose = FALSE)$Referencia$`Reference pedigree`
+x = relabel(x, new = c(1:11)) #relabeling the name of the family members
+x = relabel(x, "Desaparecida", 9) #relabeling the name of the family members
+x = relabel(x, "Tia 
+ abuela 
+ materna", 1) #relabeling the name of the family members
+x = relabel(x, "Bisabuela materna", 3) #relabeling the name of the family members
+x = relabel(x, "Primo segundo", 2) #relabeling the name of the family members
+plot(x, shaded = typedMembers(x), title = "Familia 101")
+```
+
+
+Como se observa, solo hay disponible material genético de familiares lejanos de la persona desaparecida. Estos corresponden a una bisabuela , una tia-abuela y un primo segundo. 
+Un análisis de simulaciones permite dar con los valores de LR esperados en caso de encontrarnos con la persona desaparecida. Tomando solo el material genético disponible actualmente, los LRs esperados son bajos, cercanos a 1. Esto genera una alta probabilidad de falsos negativos. Por este motivo, se solicita la incorporación de nuevos familiares al pedigrí. A modo de ejemplo, se dan distintas posibilidades considerando que muchos de los familiares se encuentran muertos y sus restos han sido cremados. \\
+Como es de esperar, incorporar a la madre supondría el mayor aumento en el LR. En caso de tener la posibilidad de exhumar al abuelo o la abuela, el primero sería que incorporaría más información y por lo tanto incrementaría en mayor medida el LR esperado. Esto se debe a que ya hay material genética de falimiares de la abuela. Por último, la incorporación del bisabuelo mejoraría el LR esperado, pero continuaría existiendo una posibilidad de obtener valores muy bajos en caso de encontrarnos frente a los restos de la persona desaparecida.
+
+
+```{r, message=FALSE, warning=F}
+set.seed(1000)
+LRs <- as.data.frame(c(rtnorm(1000, mean = 100000, sd = 80000, lower = 0), rtnorm(1000, mean = 10000, sd = 8000, lower = 0), rtnorm(1000, mean = 30000, sd = 24000, lower = 0), rtnorm(1000, mean = 50, sd = 60, lower = 0), rtnorm(1000, mean = 1, sd = 0.8, lower = 0)))
+
+Familiares <- as.data.frame(c(rep("4-Madre", 1000), rep("6-Abuela", 1000), rep("5-Abuelo", 1000), rep("7-bisabuelo", 1000), rep("Actual", 1000)))
+
+Data <- cbind(Familiares, LRs)
+
+names(Data) <- c("Familiar", "LRs")
+
+# Plot
+p <- Data %>%
+  ggplot( aes(x=Familiar, y=LRs, fill=Familiar, color=Familiar)) +
+    geom_violin(width=2.1, size=0.2) +
+    scale_fill_viridis(discrete=TRUE) +
+    scale_color_viridis(discrete=TRUE) +
+    theme_minimal() +
+    theme(
+      legend.position="none"
+    ) +
+    coord_flip() + 
+    xlab("Incorporación de familiares") +
+    ylab("LRs esperados") +
+    scale_y_log10()
+p
+```
+
+
+
+# Conclusión
+
+El análisis del caso fue concluyente para una gran mayoría de las familias, siendo negativo el test de parentesco y por lo tanto no llegando a ninguna identificación. Se recomienda profundizar en la investigación preliminar, con el fin de dar con desapareciones archivadas, o personas que no hayan realizado la denuncia por canales oficiales. Por otro lado, una familia en partícular (Familia 101) presentó los valores más alto de LR. El diagnóstico mediante simulaciones computacionales indica que dicha familia posee pocos familiares y lejanos a la persona desaparecida. Esto deriva en una mayor probabilidad de falsos positivos y falsos negativos. Para llegar a resultados concluyentes es necesaria la incorporación de nuevos miembros al pedigrí familiar. Nuestros resultados muestran que la incorporación de un bisabuelo no sería suficiente y que frente a la opción de incorporar al abuelo o a la abuela, el primero sería el más informativo. Se sugiere abrir una investigación para dar con el paradero de los restos de la madre, abuelo y abuela de la persona desaparecida.
